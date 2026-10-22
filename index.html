@@ -62,6 +62,14 @@ body{background:var(--bg);color:var(--ink);font-family:"Kiwi Maru","Hiragino Mar
 .item.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)}
 .item .n{position:absolute;right:3px;bottom:1px;font-size:.75rem;font-family:inherit}
 .zoomsvg .hit.z{pointer-events:auto}
+.gauge{position:relative;height:24px;border:2px solid var(--ink);border-radius:999px;overflow:hidden;margin:14px 0 6px;background:var(--bg)}
+.gzone{position:absolute;right:0;top:0;bottom:0;width:10%;background:rgba(255,92,138,.3)}
+.gfill{position:absolute;left:0;top:0;bottom:0;width:0;background:#5aa9e6}
+.gfill.max{background:var(--accent)}
+.glabel{display:flex;justify-content:space-between;font-size:.8rem;color:var(--sub)}
+#hk{transition:transform .5s cubic-bezier(.5,0,.9,.4)}
+#gcake.wobble{animation:wob .5s}
+@keyframes wob{25%{transform:rotate(-6deg)}50%{transform:rotate(5deg)}75%{transform:rotate(-3deg)}}
 .modal{position:fixed;inset:0;background:rgba(10,12,18,.62);display:none;align-items:center;justify-content:center;padding:18px;z-index:20}
 .modal.open{display:flex}
 .sheet{background:var(--card);color:var(--ink);border-radius:14px;width:100%;max-width:520px;max-height:88vh;overflow:auto;padding:18px;position:relative}
@@ -156,6 +164,32 @@ body{background:var(--bg);color:var(--ink);font-family:"Kiwi Maru","Hiragino Mar
   </div>
 </div>
 
+<!-- hanky game -->
+<div class="modal" id="gameModal" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <button class="close" data-close aria-label="閉じる">×</button>
+    <h2>ハンカチ引き</h2>
+    <p style="margin:0 0 10px;font-size:.95rem;line-height:1.7">ケーキを落とさないように、集中ゲージがMAXの瞬間に引こう！</p>
+    <div class="zoomsvg"><svg id="gameSvg" viewBox="0 0 300 140">
+      <rect width="300" height="140" fill="var(--wall)"/>
+      <rect x="20" y="96" width="260" height="10" fill="#c9a77c" stroke="#111" stroke-width="2"/>
+      <path d="M40 106V140M260 106V140" stroke="#111" stroke-width="4"/>
+      <g id="hk"><polygon points="95,96 215,96 220,124 200,118 90,118" fill="#9fd3f0" stroke="#111" stroke-width="2" stroke-linejoin="round"/></g>
+      <g id="gcake" style="transform-origin:150px 94px">
+        <rect x="102" y="88" width="96" height="7" rx="3" fill="#fafafa" stroke="#111" stroke-width="2"/>
+        <rect x="114" y="52" width="72" height="36" rx="4" fill="#fff6ea" stroke="#111" stroke-width="2.2"/>
+        <path d="M114 62 Q123 70 132 62 Q141 70 150 62 Q159 70 168 62 Q177 70 186 62" fill="none" stroke="#f48fb1" stroke-width="3"/>
+        <rect x="147" y="34" width="6" height="18" fill="#90caf9" stroke="#111" stroke-width="1.3"/>
+        <path d="M150 22 Q155 28 150 33 Q145 28 150 22Z" fill="#ffb300"/>
+      </g>
+    </svg></div>
+    <div class="gauge"><div class="gzone"></div><div class="gfill" id="gfill"></div></div>
+    <div class="glabel"><span>集中ゲージ</span><span>MAX</span></div>
+    <div class="msg" id="gameMsg"></div>
+    <div style="text-align:center"><button class="btn" id="pullBtn">引く！</button></div>
+  </div>
+</div>
+
 <!-- dialog -->
 <div class="modal" id="dlg" role="dialog" aria-modal="true">
   <div class="sheet dlgsheet"><p id="dlgMsg"></p><div class="dlgbtns" id="dlgBtns"></div></div>
@@ -186,7 +220,7 @@ const STARS = [
   {c:"#f5c400", name:"黄"}
 ];
 const WALLS = ["ドアの壁","本棚の壁","絵の壁","ケーキの壁"];
-let wall = 0, dark = false, startTime = 0, hasKey = false, shelfOpen = false, rugFlipped = false, showKeyTemp = false, shelfSlid = false, memoState = 0, hasTack = false, selected = null, batteries = 0, gotBatA = false, pinkPopped = false, purplePopped = false, powered = false, hasHanky = false, dusted = false;
+let wall = 0, dark = false, startTime = 0, hasKey = false, shelfOpen = false, rugFlipped = false, shelfSlid = false, memoState = 0, hasTack = false, selected = null, batteries = 0, gotBatA = false, pinkPopped = false, purplePopped = false, powered = false, hasHanky = false, dusted = false;
 
 function star(cx,cy,r,color,sw){
   let p=[];
@@ -214,12 +248,12 @@ const T = (x,y,t,size,fill,extra)=>`<text x="${x}" y="${y}" font-size="${size}" 
 function wall0(){ // ドア
   let s="";
   // balloons
-  if(!pinkPopped) s+=`<path d="M78 100 Q82 140 90 170" stroke="#777" stroke-width="1.2" fill="none"/><ellipse cx="78" cy="86" rx="13" ry="16" fill="#f7a8c8" stroke="#111" stroke-width="2"/>`;
-  else s+=`<path d="M90 170 Q84 160 88 150" stroke="#777" stroke-width="1.2" fill="none"/><path d="M86 148 l-4 -3 M89 147 l2 -4" stroke="#f7a8c8" stroke-width="2.5" stroke-linecap="round"/>`;
-  if(!purplePopped) s+=`<path d="M100 92 Q98 140 92 170" stroke="#777" stroke-width="1.2" fill="none"/><ellipse cx="102" cy="76" rx="13" ry="16" fill="#c9b6f2" stroke="#111" stroke-width="2"/>`;
-  else s+=`<path d="M92 170 Q98 160 95 152" stroke="#777" stroke-width="1.2" fill="none"/><path d="M94 150 l-3 -4 M97 150 l3 -3" stroke="#c9b6f2" stroke-width="2.5" stroke-linecap="round"/>`;
-  if(!pinkPopped) s+=`<rect class="hit" data-action="balloon" data-b="pink" x="62" y="68" width="26" height="36"/>`;
-  if(!purplePopped) s+=`<rect class="hit" data-action="balloon" data-b="purple" x="88" y="58" width="28" height="36"/>`;
+  if(!pinkPopped) s+=`<path d="M74 140 Q78 170 86 192" stroke="#777" stroke-width="1.2" fill="none"/><ellipse cx="74" cy="124" rx="13" ry="16" fill="#f7a8c8" stroke="#111" stroke-width="2"/>`;
+  else s+=`<path d="M86 192 Q80 182 84 172" stroke="#777" stroke-width="1.2" fill="none"/><path d="M82 170 l-4 -3 M85 169 l2 -4" stroke="#f7a8c8" stroke-width="2.5" stroke-linecap="round"/>`;
+  if(!purplePopped) s+=`<path d="M98 130 Q96 170 88 192" stroke="#777" stroke-width="1.2" fill="none"/><ellipse cx="98" cy="114" rx="13" ry="16" fill="#c9b6f2" stroke="#111" stroke-width="2"/>`;
+  else s+=`<path d="M88 192 Q94 182 91 174" stroke="#777" stroke-width="1.2" fill="none"/><path d="M90 172 l-3 -4 M93 172 l3 -3" stroke="#c9b6f2" stroke-width="2.5" stroke-linecap="round"/>`;
+  if(!pinkPopped) s+=`<rect class="hit" data-action="balloon" data-b="pink" x="58" y="106" width="28" height="38"/>`;
+  if(!purplePopped) s+=`<rect class="hit" data-action="balloon" data-b="purple" x="84" y="96" width="30" height="38"/>`;
   // garland
   s+=`<path d="M60 28 Q200 62 340 28" stroke="#111" stroke-width="1.6" fill="none"/>`;
   const kana=["さ","が","し","て"], ts=[.17,.39,.61,.83];
@@ -331,10 +365,9 @@ function wall2(){ // 絵
   // rug
   s+=`<ellipse cx="200" cy="250" rx="110" ry="24" fill="#f3d9e4" stroke="#111" stroke-width="2"/>
   <ellipse cx="200" cy="250" rx="90" ry="16" fill="none" stroke="#e7a9c3" stroke-width="2" stroke-dasharray="5 4"/>`;
-  if(rugFlipped){
-    if(showKeyTemp) s+=keySvg(282,262);
-  }
+  if(rugFlipped && !hasKey) s+=keySvg(282,262);
   s+=`<rect class="hit" data-action="rug" x="88" y="224" width="226" height="54"/>`;
+  if(rugFlipped && !hasKey) s+=`<rect class="hit z" data-action="key" x="270" y="250" width="40" height="24"/>`;
   // switch
   s+=switchSvg();
   return s;
@@ -356,7 +389,9 @@ function wall3(){ // ケーキ
   // table & cake (front view: candles hide each other)
   s+=`<rect x="140" y="170" width="120" height="7" fill="#c9a77c" stroke="#111" stroke-width="2"/>
   <path d="M152 177V215M248 177V215" stroke="#111" stroke-width="3"/>
-  <rect x="168" y="146" width="64" height="24" rx="3" fill="#fff6ea" stroke="#111" stroke-width="2.2"/>
+  ${hasHanky?"":`<polygon points="152,170 257,170 261,194.5 244,189 147.5,189" fill="#9fd3f0" stroke="#111" stroke-width="1.8" stroke-linejoin="round"/>`}
+  <rect x="158" y="166" width="84" height="5" rx="2" fill="#fafafa" stroke="#111" stroke-width="1.8"/>
+  <rect x="168" y="144" width="64" height="23" rx="3" fill="#fff6ea" stroke="#111" stroke-width="2.2"/>
   <path d="M168 153 Q176 160 184 153 Q192 160 200 153 Q208 160 216 153 Q224 160 232 153" fill="none" stroke="#f48fb1" stroke-width="2.5"/>
   <rect x="197.5" y="130" width="5" height="16" fill="#90caf9" stroke="#111" stroke-width="1.2"/>
   <path d="M200 120 Q204 125 200 129 Q196 125 200 120Z" fill="#ffb300"/>`;
@@ -364,12 +399,14 @@ function wall3(){ // ケーキ
   s+=`<rect x="244" y="136" width="112" height="38" fill="var(--paper)" stroke="var(--line)" stroke-width="2" transform="rotate(3 300 155)"/>`;
   s+=T(292,156,"ろうそくの数番目",11)+star(345,157,6.5,STARS[2].c,2.2);
   s+=`<rect class="hit" data-action="cake" x="140" y="112" width="218" height="74"/>`;
+  if(!hasHanky) s+=`<rect class="hit" data-action="hanky" x="144" y="171" width="120" height="26"/>`;
   return s;
 }
 function cakeCloseup(){
   // directly from above
   let s=`<rect width="320" height="210" fill="#c9a77c"/>
   <path d="M0 70H320M0 140H320" stroke="#b08f66" stroke-width="2"/>
+  ${hasHanky?"":`<polygon points="150,120 238,150 218,205 128,180" fill="#9fd3f0" stroke="#111" stroke-width="2"/>`}
   <circle cx="130" cy="105" r="92" fill="#fafafa" stroke="#111" stroke-width="2"/>
   <circle cx="130" cy="105" r="74" fill="#fff6ea" stroke="#111" stroke-width="2.4"/>
   <circle cx="130" cy="105" r="62" fill="none" stroke="#f48fb1" stroke-width="5" stroke-dasharray="8 7"/>`;
@@ -444,12 +481,12 @@ document.getElementById("scene").addEventListener("click",e=>{
   if(a==="switch") return useSwitch();
   if(a==="batA"){ gotBatA=true; batteries++; draw(); return dialog("電池を手に入れた！"); }
   if(a==="balloon") return useBalloon(t.dataset.b);
+  if(a==="key") return getKey();
+  if(a==="hanky") return openGame();
   if(a==="rug"){
     if(!rugFlipped){
-      rugFlipped=true; showKeyTemp=true;
-      const c=sceneContent(); showKeyTemp=false;
-      hasKey=true; draw();
-      return showZoom("200 200 160 90","カーペットの下に鍵があった！",c);
+      rugFlipped=true; draw();
+      return showZoom("200 200 160 90","カーペットの下に鍵がある！");
     }
     return showZoom("80 200 240 90","カーペット");
   }
@@ -476,11 +513,41 @@ async function useSwitch(){
   dialog(`スイッチが動かない…\n電池が2個必要みたい。（持っている電池：${batteries}個）`);
 }
 function useBalloon(b){
-  if(selected!=="tack") return showZoom("50 50 80 70","風船");
-  if(b==="pink"){ pinkPopped=true; hasHanky=true; draw(); return dialog("パン！風船が割れて、\n中からハンカチが出てきた！"); }
-  purplePopped=true; batteries++; draw();
-  dialog("パン！風船が割れて、\n中から電池が出てきた！");
+  if(selected!=="tack") return showZoom("45 85 90 75","風船");
+  if(b==="pink"){ pinkPopped=true; draw(); return dialog("パン！風船が割れた。\n中には何もなかった。"); }
+  purplePopped=true; batteries++; hasTack=false; selected=null; draw();
+  dialog("パン！風船が割れて、\n中から電池が出てきた！\n\n画鋲はどこかへ飛んでいってしまった…");
 }
+let gVal=0,gStart=0,gDone=false;
+function openGame(){
+  if(hasHanky) return;
+  gDone=false; document.getElementById("gameMsg").textContent="";
+  document.getElementById("hk").style.transform="";
+  openModal("gameModal"); gStart=performance.now(); requestAnimationFrame(gLoop);
+}
+function gLoop(t){
+  const m=document.getElementById("gameModal");
+  if(!m.classList.contains("open")||gDone) return;
+  const ph=((t-gStart)%1600)/1600;
+  gVal=(ph<.5?ph*2:2-ph*2)*100;
+  const f=document.getElementById("gfill");
+  f.style.width=gVal+"%"; f.classList.toggle("max",gVal>=90);
+  requestAnimationFrame(gLoop);
+}
+document.getElementById("pullBtn").onclick=()=>{
+  if(gDone) return;
+  const cake=document.getElementById("gcake"), msg=document.getElementById("gameMsg");
+  if(gVal>=90){
+    gDone=true;
+    document.getElementById("hk").style.transform="translateX(260px)";
+    msg.textContent="スパッ！";
+    setTimeout(()=>{ document.getElementById("gameModal").classList.remove("open"); hasHanky=true; draw(); dialog("ハンカチを手に入れた！\nケーキは無事だ。"); },800);
+  } else {
+    msg.textContent="ケーキがぐらっ…！集中してもう一度";
+    cake.classList.remove("wobble"); void cake.getBoundingClientRect(); cake.classList.add("wobble");
+  }
+};
+function getKey(){ hasKey=true; draw(); refreshZoom(); dialog("鍵を手に入れた！"); }
 async function useTack(){
   if(memoState===0){
     const r=await dialog("裏返しますか？",["いいえ","はい"]);
@@ -497,6 +564,7 @@ function refreshZoom(){ if(lastZoom && !lastZoom.custom && document.getElementBy
 document.getElementById("zoomSvg").addEventListener("click",e=>{
   const t=e.target.closest(".hit.z"); if(!t) return;
   if(t.dataset.action==="tack") useTack();
+  if(t.dataset.action==="key") getKey();
 });
 
 let suppressClick=false, dragX=null;
@@ -540,7 +608,7 @@ function check(){
 
 // hints
 const HINTS=[
-  ["メモは裏返しで画鋲で止めてある。メモをタップして、画鋲を調べてみよう。","本棚の鍵はカーペットの下。本棚を右にずらすと、壁に段の番号が見えるよ。","本棚の上はほこりだらけ。ピンクの風船の中のハンカチで拭いてみよう。","「ニ」は2段目、「Ⅲ」は本棚の上に書かれたⅢの列。その本の文字。"],
+  ["メモは裏返しで画鋲で止めてある。メモをタップして、画鋲を調べてみよう。","本棚の鍵はカーペットの下。本棚を右にずらすと、壁に段の番号が見えるよ。","本棚の上はほこりだらけ。ケーキのお皿の下のハンカチで拭いてみよう。ハンカチは集中ゲージがMAXの時に引くと取れるよ。","「ニ」は2段目、「Ⅲ」は本棚の上に書かれたⅢの列。その本の文字。"],
   ["青い★のパネルと同じ雲のマークが、絵の壁にもあるよ。","雲がついた夜の絵がパネルの右。時間の順に並べると左は朝。日の出の絵の下の文字。"],
   ["ケーキをタップして、真上から見てみよう。","ろうそくは縦に3本並んでいる。ドアの上のガーランドの3番目の文字。"],
   ["スイッチには電池が2個必要。1個は本棚を右に動かすと見つかるよ。","もう1個は風船の中。メモの画鋲を持ち物から選んで、風船をタップしよう。","電池を入れたら電気を消して、本棚の壁を見てみよう。"]
